@@ -29,49 +29,38 @@ def assemble(fs, f):
     
 
     # Constructing my QuadraturreRule
-    Q = gauss_quadrature(fe.cell,fe.degree)
+    Q = gauss_quadrature(fe.cell,2*fe.degree)
 
     # Tabulating the basis function at each quadrature point
     phi = (fe.tabulate(Q.points))
     phigrad = fe.tabulate(Q.points,grad=True)
     #Assembling the RHS
-    
+    v = 0
     for c in range(mesh.entity_counts[-1]):
         # Find the appropriate global node numbers for this cell.
         nodes= fs.cell_nodes[c, :]
         # Compute the change of coordinates
         J = mesh.jacobian(c)
         detJ = np.abs(np.linalg.det(J))
-        for i in range(len(Q.points)):
-            midterm = np.dot(f.values[nodes],phi.T)   
-        # Compute the actual cell quadrature.
-            v = np.dot(phi[i],(np.dot(midterm,Q.weights)))*detJ
-            #print(v,phi[i],midterm,Q.weights,nodes,phi)
-            l[nodes] += v
-
+        v = np.einsum( " qi , k , qk , q ->  i"  , phi , f.values[nodes], phi, Q.weights)
+        v *=  detJ
+        l[nodes] += v
+    #print(l.shape)
     #Assembling the LHS:
-    phi = phi.T
-    phigrad = np.transpose(phigrad,axes=(1,0,2))
+
+    # phi = phi.T
+    # phigrad = np.transpose(phigrad,axes=(1,0,2))
+    b = 0
     for c in range(mesh.entity_counts[-1]):
         # Find the appropriate global node numbers for this cell.
         nodes= fs.cell_nodes[c, :]
         # Compute the change of coordinates
         J = mesh.jacobian(c)
-        print(J)
-        JinvT = np.linalg.inv(J).T
-        print(JinvT)
+        JinvT = (np.linalg.inv(J)).T
         detJ = np.abs(np.linalg.det(J))
-        for i in range(len(nodes)):
-            b = []
-            for j in range(len(nodes)):
-                midterm1 = np.dot(JinvT,phigrad[i]) #i index for phi
-                midterm2 = (np.dot(JinvT,phigrad[j])) # j indes for phi
-                leftterm = np.dot(phi[i],phi[j].T) 
-        # Compute the actual cell quadrature.
-                #print(midterm1,midterm2,leftterm,Q.weights,phi)
-                b.append(np.dot(((midterm1*midterm2) + leftterm).T,Q.weights)*detJ)
-                print(b,"go",A)
-            A[np.ix_(nodes,nodes)] += np.array(b)
+        b = np.einsum("ba,qib,ya,qiy,qi,qj,q->ij",JinvT,phigrad,JinvT,phigrad,phi,phi,Q.weights)
+        b*=detJ
+        A[np.ix_(nodes,nodes)] += b
             
     # Create an appropriate (complete) quadrature rule.
 
