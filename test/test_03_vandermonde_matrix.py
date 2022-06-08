@@ -35,7 +35,7 @@ def test_vandermond_matrix_rank(cell):
 def test_vandermonde_matrix_size(cell, degree):
 
     points = np.ones((1, cell.dim))
-
+    print(points, degree, cell)
     shape = vandermonde_matrix(cell, degree, points).shape
 
     correct_shape = (1, np.round(comb(degree + cell.dim, cell.dim)))

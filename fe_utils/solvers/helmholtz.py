@@ -15,8 +15,64 @@ def assemble(fs, f):
     the function space in which to solve and the right hand side
     function."""
 
-    raise NotImplementedError
 
+    A = sp.lil_matrix((fs.node_count, fs.node_count))
+    l = np.zeros(fs.node_count)
+    
+
+
+   
+    #raise NotImplementedError
+    
+    fe = fs.element
+    mesh = fs.mesh   
+    
+
+    # Constructing my QuadraturreRule
+    Q = gauss_quadrature(fe.cell,fe.degree)
+
+    # Tabulating the basis function at each quadrature point
+    phi = (fe.tabulate(Q.points))
+    phigrad = fe.tabulate(Q.points,grad=True)
+    #Assembling the RHS
+    
+    for c in range(mesh.entity_counts[-1]):
+        # Find the appropriate global node numbers for this cell.
+        nodes= fs.cell_nodes[c, :]
+        # Compute the change of coordinates
+        J = mesh.jacobian(c)
+        detJ = np.abs(np.linalg.det(J))
+        for i in range(len(Q.points)):
+            midterm = np.dot(f.values[nodes],phi.T)   
+        # Compute the actual cell quadrature.
+            v = np.dot(phi[i],(np.dot(midterm,Q.weights)))*detJ
+            #print(v,phi[i],midterm,Q.weights,nodes,phi)
+            l[nodes] += v
+
+    #Assembling the LHS:
+    phi = phi.T
+    phigrad = np.transpose(phigrad,axes=(1,0,2))
+    for c in range(mesh.entity_counts[-1]):
+        # Find the appropriate global node numbers for this cell.
+        nodes= fs.cell_nodes[c, :]
+        # Compute the change of coordinates
+        J = mesh.jacobian(c)
+        print(J)
+        JinvT = np.linalg.inv(J).T
+        print(JinvT)
+        detJ = np.abs(np.linalg.det(J))
+        for i in range(len(nodes)):
+            b = []
+            for j in range(len(nodes)):
+                midterm1 = np.dot(JinvT,phigrad[i]) #i index for phi
+                midterm2 = (np.dot(JinvT,phigrad[j])) # j indes for phi
+                leftterm = np.dot(phi[i],phi[j].T) 
+        # Compute the actual cell quadrature.
+                #print(midterm1,midterm2,leftterm,Q.weights,phi)
+                b.append(np.dot(((midterm1*midterm2) + leftterm).T,Q.weights)*detJ)
+                print(b,"go",A)
+            A[np.ix_(nodes,nodes)] += np.array(b)
+            
     # Create an appropriate (complete) quadrature rule.
 
     # Tabulate the basis functions and their gradients at the quadrature points.
@@ -24,12 +80,13 @@ def assemble(fs, f):
     # Create the left hand side matrix and right hand side vector.
     # This creates a sparse matrix because creating a dense one may
     # well run your machine out of memory!
-    A = sp.lil_matrix((fs.node_count, fs.node_count))
-    l = np.zeros(fs.node_count)
+    
 
     # Now loop over all the cells and assemble A and l
 
     return A, l
+
+
 
 
 def solve_helmholtz(degree, resolution, analytic=False, return_error=False):
