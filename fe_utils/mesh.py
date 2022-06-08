@@ -2,7 +2,7 @@ from scipy.spatial import Delaunay
 import numpy as np
 import itertools
 from .finite_elements import LagrangeElement
-from .reference_elements import ReferenceTriangle, ReferenceInterval
+from .reference_elements import ReferenceCell, ReferenceTriangle, ReferenceInterval
 
 
 class Mesh(object):
@@ -110,8 +110,28 @@ class Mesh(object):
         :param c: The number of the cell for which to return the Jacobian.
         :result: The Jacobian for cell ``c``.
         """
+        #1 step I have to know my element.
+        my_element = LagrangeElement(self.cell,1)
 
-        raise NotImplementedError
+        #2 step: Knowing the cell that for which i want to compute the Jacobian,
+        # I have to fine the nodes defining the cell
+        nodesC = self.cell_vertices[c]
+
+        #Step 3: Extract the coordinates of each nodes of cell c
+        coor_nodesC = np.array([self.vertex_coords[i] for i in nodesC])
+        
+        #Step4: After having thier coordinates, i compute it's Transpose.
+        coor_nodesCT = coor_nodesC.T
+        
+        #Gradient of basis coefficients
+        Xpoints = self.cell.vertices
+        grad_Xpoints = my_element.tabulate(Xpoints,grad=True)
+
+        # Computing my Jacobian
+        Jac = np.dot(coor_nodesCT,grad_Xpoints[0])
+        return Jac
+            
+    
 
 
 class UnitIntervalMesh(Mesh):
